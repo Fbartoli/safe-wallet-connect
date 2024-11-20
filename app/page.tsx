@@ -7,19 +7,15 @@ import {
   useSendTransaction,
   useWaitForTransactionReceipt
 } from "@permissionless/wagmi"
+import { sendCalls } from '@wagmi/core/experimental'
+import { wagmiAdapter } from "./config"
+import { sepolia } from "@reown/appkit/networks"
 
 export default function Page() {
   const { isConnected, chainId, address } = useAccount()
   const capabilities = useCapabilities()
-  const capabilitiesForChain = capabilities.data[chainId]
-  const paymasterServiceSupported = capabilitiesForChain?.paymasterService?.supported
   const { sendTransaction, data: transactionReference,
     isPending } = useSendTransaction()
-
-  useEffect(() => {
-    console.log('chainId', chainId)
-    console.log('capabilities', capabilities.data[chainId])
-  }, [capabilities])
 
   const { data: receipt, isPending: isReceiptPending } =
     useWaitForTransactionReceipt({
@@ -28,29 +24,29 @@ export default function Page() {
 
   const sendTransactionCallback = useCallback(async () => {
     console.log("Sending transaction...")
-    sendTransaction({
-      to: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
-      data: "0x1234",
-    }, {
-      onSuccess: (data, variables, context) => {
-        console.log('success', data, variables, context)
-      },
-      onError: (error, variables, context) => {
-        console.log('error', error, variables, context)
-      },
-      onSettled: (data, variables, context) => {
-        console.log('settled', data, variables, context)
+    const result = await sendCalls(wagmiAdapter.wagmiConfig, {
+      account: address,
+      calls: [
+        {
+          to: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+          data: "0x1234",
+        }
+      ],
+      capabilities: {
+        paymasterService: {
+          url: `https://api.pimlico.io/v2/${sepolia.id}/rpc?apikey=${process.env.NEXT_PUBLIC_PIMLICO_API_KEY}`
+        }
       }
     })
-  }, [sendTransaction])
+    console.log("Result", result)
+  }, [sendCalls])
 
   return (<>
     <appkit-button />
     {isConnected && <>
-      
+
       <div style={{ marginTop: 60, color: 'white' }}>
         <h2>Send ERC-4677 transaction</h2>
-        {paymasterServiceSupported ? 'Paymaster service supported' : 'Paymaster service not supported'}
         {address}
 
         {isPending && <div>Sending transaction...</div>}
